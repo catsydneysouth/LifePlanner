@@ -15,26 +15,30 @@ export function makeSampleState(): AppState {
   const d = (offset: number) => addDays(now, offset);
 
   const recipes: Recipe[] = [
-    recipe('Chicken & chickpea curry', 4, '40 min', ['dinner', 'batch'],
+    recipe('Chicken & Chickpea Curry', 4, '40 min', ['dinner', 'batch'],
       `500g chicken thighs\n1 onion\n2 garlic cloves\n1 tin chopped tomatoes\n1 tin chickpeas\n200ml coconut milk\n2 tbsp curry paste\nbasmati rice`,
       'Brown the chicken, soften the onion and garlic, stir in the paste, then add tomatoes, chickpeas and coconut milk. Simmer for 25 minutes. Serve with rice.'),
-    recipe('Spaghetti with tomato & basil', 2, '20 min', ['dinner', 'veggie', 'quick'],
+    recipe('Spaghetti With Tomato & Basil', 2, '20 min', ['dinner', 'veggie', 'quick'],
       `200g spaghetti\n1 tin chopped tomatoes\n2 garlic cloves\n1 bunch basil\nolive oil\nparmesan`,
       'Cook the spaghetti. Fry the garlic gently in oil, add tomatoes and simmer for 10 minutes. Toss together with torn basil and parmesan.'),
-    recipe('Veg-loaded omelette', 1, '10 min', ['breakfast', 'lunch', 'quick'],
+    recipe('Veg-Loaded Omelette', 1, '10 min', ['breakfast', 'lunch', 'quick'],
       `3 eggs\n1 pepper\n50g spinach\n30g cheddar\nbutter`,
       'Soften the pepper in butter, add spinach until it wilts, pour in beaten eggs and cook gently. Fold with the cheese.'),
-    recipe('Overnight oats', 1, '5 min + overnight', ['breakfast', 'prep-ahead'],
+    recipe('Overnight Oats', 1, '5 min + overnight', ['breakfast', 'prep-ahead'],
       `50g oats\n150ml milk\n1 tbsp honey\n1 banana\nGreek yoghurt`,
       'Stir oats, milk and honey in a jar. Chill overnight. Top with sliced banana and a spoonful of yoghurt.'),
-    recipe('Salmon, potatoes & greens', 2, '30 min', ['dinner'],
+    recipe('Salmon, Potatoes & Greens', 2, '30 min', ['dinner'],
       `2 salmon fillets\n500g new potatoes\n200g broccoli\n1 lemon\nolive oil`,
       'Roast the potatoes for 20 minutes, add the salmon for the last 12. Steam the broccoli. Finish with lemon.'),
-    recipe('Lentil & veg soup', 4, '35 min', ['lunch', 'veggie', 'batch'],
+    recipe('Lentil & Veg Soup', 4, '35 min', ['lunch', 'veggie', 'batch'],
       `200g red lentils\n1 onion\n2 carrots\n1 litre vegetable stock\n1 tsp cumin\n1 tin chopped tomatoes`,
       'Soften the onion and carrots, add cumin, lentils, tomatoes and stock. Simmer for 25 minutes and blend half.'),
   ];
-  const byName = (s: string) => recipes.find((r) => r.name.startsWith(s))!.id;
+  const byName = (s: string) => {
+    const r = recipes.find((x) => x.name.startsWith(s));
+    if (!r) throw new Error(`Sample recipe not found: ${s}`);
+    return r.id;
+  };
 
   const item = (name: string, qty: number | null, unit: string, location: PantryItem['location'], expiry: string): PantryItem => ({
     id: id('pan'), name, qty, unit, location, expiry,
@@ -70,7 +74,7 @@ export function makeSampleState(): AppState {
   };
   put(mon, 'breakfast', { kind: 'recipe', recipeId: byName('Overnight') });
   put(addDays(mon, 1), 'breakfast', { kind: 'recipe', recipeId: byName('Overnight') });
-  put(d(0), 'breakfast', { kind: 'recipe', recipeId: byName('Veg-loaded') });
+  put(d(0), 'breakfast', { kind: 'recipe', recipeId: byName('Veg-Loaded') });
   put(d(0), 'lunch', { kind: 'text', text: 'Leftover soup from the freezer' });
   put(d(0), 'dinner', { kind: 'recipe', recipeId: byName('Chicken') });
   put(d(1), 'lunch', { kind: 'recipe', recipeId: byName('Lentil') });
@@ -86,11 +90,10 @@ export function makeSampleState(): AppState {
     pantry,
     plan,
     manual: [{ id: id('man'), name: 'Dishwasher tablets', qty: null, unit: '' }],
-    ticked: {},
     isSample: true,
   };
 }
 
 export function emptyState(): AppState {
-  return { version: 1, recipes: [], pantry: [], plan: {}, manual: [], ticked: {}, isSample: false };
+  return { version: 1, recipes: [], pantry: [], plan: {}, manual: [], isSample: false };
 }

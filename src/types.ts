@@ -52,8 +52,6 @@ export interface AppState {
   pantry: PantryItem[];
   plan: Plan;
   manual: ManualItem[];
-  /** shopping row key -> ticked */
-  ticked: Record<string, boolean>;
   isSample: boolean;
 }
 

@@ -12,14 +12,12 @@ export interface Actions {
   removeMeal(date: string, slot: Slot, entryId: string): void;
   copyWeek(fromMonday: string, toMonday: string): void;
   savePantryItem(item: Omit<PantryItem, 'id'> & { id?: string }): void;
-  addPantryItems(items: Omit<PantryItem, 'id'>[]): void;
+  addPantryItems(items: Omit<PantryItem, 'id'>[]): string[];
   deletePantryItem(id: string): void;
   saveRecipe(r: Omit<Recipe, 'id'> & { id?: string }): string;
   deleteRecipe(id: string): void;
   addManual(name: string, qty: number | null, unit: string): void;
   deleteManual(id: string): void;
-  setTicked(key: string, value: boolean): void;
-  clearTicked(keys: string[]): void;
   replaceAll(state: AppState): void;
   clearSample(): void;
 }
@@ -81,7 +79,9 @@ export function StoreProvider({ children, storage = localStorageAdapter }: { chi
         });
       },
       addPantryItems(items) {
-        update((s) => ({ ...s, pantry: [...s.pantry, ...items.map((i) => ({ ...i, id: uid() }))] }));
+        const withIds = items.map((i) => ({ ...i, id: uid() }));
+        update((s) => ({ ...s, pantry: [...s.pantry, ...withIds] }));
+        return withIds.map((i) => i.id);
       },
       deletePantryItem(id) {
         update((s) => ({ ...s, pantry: s.pantry.filter((p) => p.id !== id) }));
@@ -116,16 +116,6 @@ export function StoreProvider({ children, storage = localStorageAdapter }: { chi
       },
       deleteManual(id) {
         update((s) => ({ ...s, manual: s.manual.filter((m) => m.id !== id) }));
-      },
-      setTicked(key, value) {
-        update((s) => ({ ...s, ticked: { ...s.ticked, [key]: value } }));
-      },
-      clearTicked(keys) {
-        update((s) => {
-          const ticked = { ...s.ticked };
-          keys.forEach((k) => delete ticked[k]);
-          return { ...s, ticked };
-        });
       },
       replaceAll(next) {
         setState(next);

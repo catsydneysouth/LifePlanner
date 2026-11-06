@@ -53,7 +53,6 @@ export function parseBackup(text: string): AppState {
     pantry: data.pantry,
     plan: data.plan ?? {},
     manual: data.manual ?? [],
-    ticked: data.ticked ?? {},
     isSample: false,
   };
 }

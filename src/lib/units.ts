@@ -135,3 +135,8 @@ export function fromBase(qty: number, unit: string): BaseQty {
 export function capitalise(s: string): string {
   return s ? s[0].toUpperCase() + s.slice(1) : s;
 }
+
+/** "chicken & chickpea curry" -> "Chicken & Chickpea Curry" (every word capitalised) */
+export function titleCase(s: string): string {
+  return s.replace(/(^|[\s(\-/])([a-z])/g, (_m, pre: string, ch: string) => pre + ch.toUpperCase());
+}

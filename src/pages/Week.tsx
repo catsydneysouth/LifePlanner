@@ -5,7 +5,10 @@ import { addDays, fmtDay, fmtWeekRange, startOfWeek, today } from '../lib/dates'
 import { buildShopping, recipeCoverage } from '../lib/shopping';
 import { Icon, Modal } from '../components/ui';
 
-export function WeekPage() {
+export const DRAG_TYPE = 'application/x-recipe-id';
+const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
+
+export function WeekPlanner() {
   const { state, actions } = useStore();
   const now = today();
   const [weekStart, setWeekStart] = useState(startOfWeek(now));
@@ -19,11 +22,10 @@ export function WeekPage() {
     [state.plan, state.recipes, state.pantry, from, to, now],
   );
   const plannedCount = days.reduce((n, d) => n + SLOTS.reduce((m, s) => m + (state.plan[d]?.[s]?.length ?? 0), 0), 0);
-  const hasPlanThisWeek = plannedCount > 0;
   const lastMonday = addDays(weekStart, -7);
 
   const copyLast = () => {
-    if (hasPlanThisWeek && !window.confirm('This replaces the meals already planned for this week. Carry on?')) return;
+    if (plannedCount > 0 && !window.confirm('This replaces the meals already planned for this week. Carry on?')) return;
     actions.copyWeek(lastMonday, weekStart);
   };
 
@@ -31,17 +33,17 @@ export function WeekPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>Meal plan</h1>
-          <div className="sub">Write meals in, or pick from your recipes.</div>
+          <h1>Meal Plan</h1>
+          <div className="sub">Write meals in, or drag a recipe from the right onto a meal.</div>
         </div>
         <div className="row">
-          <button className="btn btn-sm" onClick={copyLast}>Copy last week</button>
+          <button className="btn btn-sm" onClick={copyLast}>Copy Last Week</button>
           <div className="week-nav">
             <button className="icon-btn" onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="Previous week"><Icon name="chevL" /></button>
             <div className="range">{fmtWeekRange(weekStart)}</div>
             <button className="icon-btn" onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Next week"><Icon name="chevR" /></button>
           </div>
-          {weekStart !== startOfWeek(now) && <button className="btn btn-sm" onClick={() => setWeekStart(startOfWeek(now))}>This week</button>}
+          {weekStart !== startOfWeek(now) && <button className="btn btn-sm" onClick={() => setWeekStart(startOfWeek(now))}>This Week</button>}
         </div>
       </div>
 
@@ -50,14 +52,14 @@ export function WeekPage() {
           <span>{shop.mealCount} recipe {shop.mealCount === 1 ? 'meal' : 'meals'} planned</span>
           <span>·</span>
           <span>{shop.toBuy.length === 0 ? 'nothing to buy – you have it all' : `${shop.toBuy.length} ${shop.toBuy.length === 1 ? 'item' : 'items'} to buy`}</span>
-          <a href="#/shopping">See shopping list</a>
+          <a href="#/kitchen">Go To Kitchen</a>
         </div>
       )}
 
       <div className="week">
         <div className="week-head">
           <span />
-          {SLOTS.map((s) => <span key={s} style={{ textTransform: 'uppercase' }}>{s}</span>)}
+          {SLOTS.map((s) => <span key={s}>{cap(s)}</span>)}
         </div>
         {days.map((date) => {
           const f = fmtDay(date);
@@ -68,45 +70,74 @@ export function WeekPage() {
                 <span className="num">{f.num}</span>
               </div>
               {SLOTS.map((slot) => (
-                <div className="cell" key={slot}>
-                  <span className="cell-label">{slot}</span>
-                  {(state.plan[date]?.[slot] ?? []).map((e) => {
-                    if (e.kind === 'text') {
-                      return (
-                        <div className="meal is-text" key={e.id}>
-                          <span className="t">{e.text}</span>
-                          <button className="x" aria-label={`Remove ${e.text}`} onClick={() => actions.removeMeal(date, slot, e.id)}><Icon name="x" size={14} /></button>
-                        </div>
-                      );
-                    }
-                    const r = state.recipes.find((x) => x.id === e.recipeId);
-                    if (!r) return null;
-                    const cov = recipeCoverage(r, state.pantry, now);
-                    const all = cov.missing.length === 0;
-                    return (
-                      <div className="meal is-recipe" key={e.id} title={all ? 'You have everything' : `Missing: ${cov.missing.join(', ')}`}>
-                        <span className={`dot ${all ? 'dot-all' : 'dot-some'}`} />
-                        <a href={`#/recipes/${r.id}`}>{r.name}</a>
-                        <button className="x" aria-label={`Remove ${r.name}`} onClick={() => actions.removeMeal(date, slot, e.id)}><Icon name="x" size={14} /></button>
-                      </div>
-                    );
-                  })}
-                  <button className="add-meal" onClick={() => setAdding({ date, slot })} aria-label={`Add ${slot} on ${f.dow} ${f.num}`}>
-                    <Icon name="plus" size={13} /> Add
-                  </button>
-                </div>
+                <MealCell key={slot} date={date} slot={slot} onAdd={() => setAdding({ date, slot })} />
               ))}
             </div>
           );
         })}
       </div>
-      <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: 16 }}>
-        <span className="dot dot-all" style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', marginRight: 6 }} />you have everything
-        <span className="dot dot-some" style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', margin: '0 6px 0 16px' }} />something to buy
+      <p className="legend">
+        <span className="dot dot-all" />you have everything
+        <span className="dot dot-some" style={{ marginLeft: 16 }} />something to buy
       </p>
 
       {adding && <AddMealModal date={adding.date} slot={adding.slot} onClose={() => setAdding(null)} />}
     </>
+  );
+}
+
+function MealCell({ date, slot, onAdd }: { date: string; slot: Slot; onAdd: () => void }) {
+  const { state, actions } = useStore();
+  const now = today();
+  const [over, setOver] = useState(false);
+  const f = fmtDay(date);
+
+  return (
+    <div
+      className={`cell ${over ? 'drop-over' : ''}`}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes(DRAG_TYPE)) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          setOver(true);
+        }
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        const id = e.dataTransfer.getData(DRAG_TYPE);
+        setOver(false);
+        if (id && state.recipes.some((r) => r.id === id)) {
+          e.preventDefault();
+          actions.addMeal(date, slot, { kind: 'recipe', recipeId: id });
+        }
+      }}
+    >
+      <span className="cell-label">{cap(slot)}</span>
+      {(state.plan[date]?.[slot] ?? []).map((e) => {
+        if (e.kind === 'text') {
+          return (
+            <div className="meal is-text" key={e.id}>
+              <span className="t">{e.text}</span>
+              <button className="x" aria-label={`Remove ${e.text}`} onClick={() => actions.removeMeal(date, slot, e.id)}><Icon name="x" size={14} /></button>
+            </div>
+          );
+        }
+        const r = state.recipes.find((x) => x.id === e.recipeId);
+        if (!r) return null;
+        const cov = recipeCoverage(r, state.pantry, now);
+        const all = cov.missing.length === 0;
+        return (
+          <div className="meal is-recipe" key={e.id} title={all ? 'You have everything' : `Missing: ${cov.missing.join(', ')}`}>
+            <span className={`dot ${all ? 'dot-all' : 'dot-some'}`} />
+            <a href={`#/plan/recipe/${r.id}`}>{r.name}</a>
+            <button className="x" aria-label={`Remove ${r.name}`} onClick={() => actions.removeMeal(date, slot, e.id)}><Icon name="x" size={14} /></button>
+          </div>
+        );
+      })}
+      <button className="add-meal" onClick={onAdd} aria-label={`Add ${slot} on ${f.dow} ${f.num}`}>
+        <Icon name="plus" size={13} /> Add
+      </button>
+    </div>
   );
 }
 
@@ -128,24 +159,24 @@ function AddMealModal({ date, slot, onClose }: { date: string; slot: Slot; onClo
   };
 
   return (
-    <Modal title={`${slot[0].toUpperCase()}${slot.slice(1)} · ${f.dow} ${f.num} ${f.month}`} onClose={onClose}>
+    <Modal title={`${cap(slot)} · ${f.dow} ${f.num} ${f.month}`} onClose={onClose}>
       <div className="stack">
         <form onSubmit={(e) => { e.preventDefault(); addText(); }} className="field">
-          <span>Write it in</span>
+          <span>Write It In</span>
           <div className="addbar" style={{ marginBottom: 0 }}>
             <input className="input" autoFocus placeholder="e.g. Leftovers, toast & eggs, out for dinner" value={text} onChange={(e) => setText(e.target.value)} />
             <button className="btn btn-primary" type="submit" disabled={!text.trim()}>Add</button>
           </div>
         </form>
         <div className="field">
-          <span>Or choose a recipe</span>
+          <span>Or Choose A Recipe</span>
           <div className="searchbox" style={{ maxWidth: 'none' }}>
             <Icon name="search" size={16} />
             <input className="input" placeholder="Search recipes" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
         </div>
         {state.recipes.length === 0 ? (
-          <p style={{ color: 'var(--muted)', margin: 0 }}>No recipes yet. Add some in <a href="#/recipes" onClick={onClose} style={{ textDecoration: 'underline' }}>Recipes</a>.</p>
+          <p style={{ color: 'var(--muted)', margin: 0 }}>No recipes yet. <a href="#/plan/recipe/new" onClick={onClose} style={{ textDecoration: 'underline' }}>Add Your First Recipe</a>.</p>
         ) : (
           <div className="pick-list">
             {sorted.length === 0 && <div style={{ padding: 14, color: 'var(--muted)' }}>No recipes match.</div>}
@@ -158,7 +189,7 @@ function AddMealModal({ date, slot, onClose }: { date: string; slot: Slot; onClo
                     <small>{r.time}{r.time && r.tags.length ? ' · ' : ''}{r.tags.join(', ')}</small>
                   </span>
                   <span className={`badge ${cov.missing.length === 0 ? 'badge-ok' : 'badge-soon'}`}>
-                    {cov.missing.length === 0 ? 'All in' : `Need ${cov.missing.length}`}
+                    {cov.missing.length === 0 ? 'All In' : `Need ${cov.missing.length}`}
                   </span>
                 </button>
               );

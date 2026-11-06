@@ -1,28 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from './store';
 import { Icon } from './components/ui';
-import { WeekPage } from './pages/Week';
-import { PantryPage } from './pages/Pantry';
-import { RecipesPage } from './pages/Recipes';
-import { ShoppingPage } from './pages/Shopping';
+import { PlanPage } from './pages/Plan';
+import { KitchenPage } from './pages/Kitchen';
 import { exportBackup, parseBackup } from './lib/storage';
 import { buildShopping } from './lib/shopping';
 import { addDays, today } from './lib/dates';
 
-type Route = { page: 'week' | 'pantry' | 'recipes' | 'shopping'; arg: string | null };
+type Route = { page: 'plan' | 'kitchen'; arg: string | null };
 
 function parseHash(): Route {
   const parts = window.location.hash.replace(/^#\/?/, '').split('/');
-  const page = (['week', 'pantry', 'recipes', 'shopping'] as const).find((p) => p === parts[0]) ?? 'week';
+  const page = (['plan', 'kitchen'] as const).find((p) => p === parts[0]) ?? 'plan';
   const arg = parts.length > 1 ? parts.slice(1).join('/') : null;
   return { page, arg: arg || null };
 }
 
 const NAV = [
-  { page: 'week', label: 'Meal plan', icon: 'week' },
-  { page: 'pantry', label: 'Pantry', icon: 'pantry' },
-  { page: 'recipes', label: 'Recipes', icon: 'recipes' },
-  { page: 'shopping', label: 'Shopping', icon: 'cart' },
+  { page: 'plan', label: 'Meal Plan', icon: 'week' },
+  { page: 'kitchen', label: 'Kitchen', icon: 'pantry' },
 ] as const;
 
 export function App() {
@@ -32,7 +28,11 @@ export function App() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const on = () => { setRoute(parseHash()); window.scrollTo({ top: 0 }); };
+    const on = () => {
+      const next = parseHash();
+      // only jump to the top when you change page, not when a recipe window opens
+      setRoute((prev) => { if (prev.page !== next.page) window.scrollTo({ top: 0 }); return next; });
+    };
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
@@ -45,8 +45,8 @@ export function App() {
 
   const now = today();
   const toBuyCount = useMemo(
-    () => buildShopping({ plan: state.plan, recipes: state.recipes, pantry: state.pantry, manual: state.manual, from: now, to: addDays(now, 6), now }).toBuy.filter((i) => !state.ticked[i.key]).length,
-    [state.plan, state.recipes, state.pantry, state.manual, state.ticked, now],
+    () => buildShopping({ plan: state.plan, recipes: state.recipes, pantry: state.pantry, manual: state.manual, from: now, to: addDays(now, 6), now }).toBuy.length,
+    [state.plan, state.recipes, state.pantry, state.manual, now],
   );
 
   const onImport = async (file: File | undefined) => {
@@ -73,13 +73,13 @@ export function App() {
           {NAV.map((n) => (
             <a key={n.page} href={linkFor(n.page)} className={route.page === n.page ? 'active' : ''} aria-current={route.page === n.page ? 'page' : undefined}>
               <Icon name={n.icon} /> {n.label}
-              {n.page === 'shopping' && toBuyCount > 0 && <span className="count">{toBuyCount}</span>}
+              {n.page === 'kitchen' && toBuyCount > 0 && <span className="count">{toBuyCount}</span>}
             </a>
           ))}
         </nav>
         <div className="sidebar-foot">
-          <button className="link-btn" onClick={() => { exportBackup(state); setToast('Backup downloaded'); }}><Icon name="download" size={16} /> Download backup</button>
-          <button className="link-btn" onClick={() => fileRef.current?.click()}><Icon name="upload" size={16} /> Restore backup</button>
+          <button className="link-btn" onClick={() => { exportBackup(state); setToast('Backup downloaded'); }}><Icon name="download" size={16} /> Download Backup</button>
+          <button className="link-btn" onClick={() => fileRef.current?.click()}><Icon name="upload" size={16} /> Restore Backup</button>
         </div>
         <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => onImport(e.target.files?.[0])} />
       </aside>
@@ -88,21 +88,19 @@ export function App() {
         {state.isSample && (
           <div className="sample-banner">
             <span>You’re looking at sample data so you can see how it all fits together.</span>
-            <button className="btn btn-sm" onClick={() => { if (window.confirm('Remove all the sample recipes, pantry items and meals and start with a blank planner?')) actions.clearSample(); }}>Clear it and start fresh</button>
+            <button className="btn btn-sm" onClick={() => { if (window.confirm('Remove all the sample recipes, pantry items and meals and start with a blank planner?')) actions.clearSample(); }}>Clear It And Start Fresh</button>
           </div>
         )}
-        {route.page === 'week' && <WeekPage />}
-        {route.page === 'pantry' && <PantryPage />}
-        {route.page === 'recipes' && <RecipesPage openId={route.arg} />}
-        {route.page === 'shopping' && <ShoppingPage />}
+        {route.page === 'plan' && <PlanPage arg={route.arg} />}
+        {route.page === 'kitchen' && <KitchenPage />}
       </main>
 
       <nav className="bottom-nav" aria-label="Main">
         {NAV.map((n) => (
           <a key={n.page} href={linkFor(n.page)} className={route.page === n.page ? 'active' : ''}>
             <Icon name={n.icon} size={20} />
-            {n.label.replace('Meal plan', 'Plan')}
-            {n.page === 'shopping' && toBuyCount > 0 && <span className="count">{toBuyCount}</span>}
+            {n.label}
+            {n.page === 'kitchen' && toBuyCount > 0 && <span className="count">{toBuyCount}</span>}
           </a>
         ))}
       </nav>
