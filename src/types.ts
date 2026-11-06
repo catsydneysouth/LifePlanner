@@ -46,12 +46,35 @@ export interface ManualItem {
   unit: string;
 }
 
+export interface Task {
+  id: string;
+  title: string;
+  done: boolean;
+  due: string; // YYYY-MM-DD, or '' for no date
+  project: string; // free-text label, or ''
+  priority: boolean; // true = flagged as important
+  notes: string;
+}
+
+/** A calendar entry that lives in this planner (Google Calendar events will be added alongside these later). */
+export interface CalEvent {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  allDay: boolean;
+  start: string; // HH:MM, or ''
+  end: string; // HH:MM, or ''
+  notes: string;
+}
+
 export interface AppState {
   version: 1;
   recipes: Recipe[];
   pantry: PantryItem[];
   plan: Plan;
   manual: ManualItem[];
+  tasks: Task[];
+  events: CalEvent[];
   isSample: boolean;
 }
 

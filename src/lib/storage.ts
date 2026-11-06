@@ -18,7 +18,8 @@ export const localStorageAdapter: Storage = {
       const raw = window.localStorage.getItem(KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw) as AppState;
-      return parsed && parsed.version === 1 ? parsed : null;
+      // older saves (food only) have no to-dos or events yet – fill them in as empty
+      return parsed && parsed.version === 1 ? { ...parsed, tasks: parsed.tasks ?? [], events: parsed.events ?? [] } : null;
     } catch {
       return null;
     }
@@ -53,6 +54,8 @@ export function parseBackup(text: string): AppState {
     pantry: data.pantry,
     plan: data.plan ?? {},
     manual: data.manual ?? [],
+    tasks: data.tasks ?? [],
+    events: data.events ?? [],
     isSample: false,
   };
 }

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { AppState, Ingredient, ManualItem, MealEntry, PantryItem, Recipe, Slot } from './types';
+import type { AppState, CalEvent, Ingredient, ManualItem, MealEntry, PantryItem, Recipe, Slot, Task } from './types';
 import { localStorageAdapter, type Storage } from './lib/storage';
 import { emptyState, makeSampleState } from './lib/sample';
 import { addDays } from './lib/dates';
@@ -18,6 +18,12 @@ export interface Actions {
   deleteRecipe(id: string): void;
   addManual(name: string, qty: number | null, unit: string): void;
   deleteManual(id: string): void;
+  saveTask(t: Omit<Task, 'id' | 'done'> & { id?: string; done?: boolean }): string;
+  toggleTask(id: string): void;
+  deleteTask(id: string): void;
+  clearDoneTasks(): void;
+  saveEvent(e: Omit<CalEvent, 'id'> & { id?: string }): string;
+  deleteEvent(id: string): void;
   replaceAll(state: AppState): void;
   clearSample(): void;
 }
@@ -116,6 +122,37 @@ export function StoreProvider({ children, storage = localStorageAdapter }: { chi
       },
       deleteManual(id) {
         update((s) => ({ ...s, manual: s.manual.filter((m) => m.id !== id) }));
+      },
+      saveTask(t) {
+        const tid = t.id ?? uid();
+        update((s) => {
+          const existing = s.tasks.find((x) => x.id === tid);
+          const full: Task = { ...t, id: tid, done: t.done ?? existing?.done ?? false };
+          return existing ? { ...s, tasks: s.tasks.map((x) => (x.id === tid ? full : x)) } : { ...s, tasks: [...s.tasks, full] };
+        });
+        return tid;
+      },
+      toggleTask(id) {
+        update((s) => ({ ...s, tasks: s.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)) }));
+      },
+      deleteTask(id) {
+        update((s) => ({ ...s, tasks: s.tasks.filter((t) => t.id !== id) }));
+      },
+      clearDoneTasks() {
+        update((s) => ({ ...s, tasks: s.tasks.filter((t) => !t.done) }));
+      },
+      saveEvent(e) {
+        const eid = e.id ?? uid();
+        update((s) => {
+          const full: CalEvent = { ...e, id: eid };
+          return s.events.some((x) => x.id === eid)
+            ? { ...s, events: s.events.map((x) => (x.id === eid ? full : x)) }
+            : { ...s, events: [...s.events, full] };
+        });
+        return eid;
+      },
+      deleteEvent(id) {
+        update((s) => ({ ...s, events: s.events.filter((e) => e.id !== id) }));
       },
       replaceAll(next) {
         setState(next);

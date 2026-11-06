@@ -1,7 +1,7 @@
 import { useEffect, useId, type ReactNode } from 'react';
 import { expiryInfo } from '../lib/dates';
 
-type IconName = 'week' | 'pantry' | 'recipes' | 'cart' | 'plus' | 'x' | 'check' | 'search' | 'trash' | 'edit' | 'download' | 'upload' | 'leaf' | 'chevL' | 'chevR' | 'clock' | 'users';
+type IconName = 'week' | 'pantry' | 'recipes' | 'cart' | 'plus' | 'x' | 'check' | 'search' | 'trash' | 'edit' | 'download' | 'upload' | 'leaf' | 'chevL' | 'chevR' | 'clock' | 'users' | 'sun' | 'list' | 'calendar' | 'spark';
 
 const PATHS: Record<IconName, ReactNode> = {
   week: (<><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>),
@@ -21,6 +21,10 @@ const PATHS: Record<IconName, ReactNode> = {
   chevR: (<path d="m9.5 6 6 6-6 6" />),
   clock: (<><circle cx="12" cy="12" r="8" /><path d="M12 7.5V12l3 2" /></>),
   users: (<><circle cx="9" cy="9" r="3" /><path d="M3.5 19c.5-3.2 2.8-5 5.5-5s5 1.8 5.5 5M16 6.5a3 3 0 0 1 0 5.8M18 14.3c1.7.6 2.7 2.2 3 4.7" /></>),
+  sun: (<><circle cx="12" cy="12" r="4" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" /></>),
+  list: (<><path d="m4.5 6.5 1.5 1.5 2.5-3M4.5 12.5 6 14l2.5-3M4.5 18.5 6 20l2.5-3M12 7h8M12 13h8M12 19h8" /></>),
+  calendar: (<><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /><circle cx="12" cy="15" r="1.4" /></>),
+  spark: (<path d="M12 4v4M12 16v4M4 12h4M16 12h4M7 7l2 2M15 15l2 2M17 7l-2 2M9 15l-2 2" />),
 };
 
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {

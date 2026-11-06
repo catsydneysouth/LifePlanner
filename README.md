@@ -55,3 +55,7 @@ src/lib/storage.ts    storage interface + localStorage + backup
 src/store.tsx         app state and actions
 src/pages/            Plan (Week + short recipes list), Recipes (full page), Kitchen (Use It Up + Shopping + Pantry)
 ```
+
+## More Sections
+
+The planner now also has **Today**, **To-Dos** and **Calendar** pages. Their data is saved on the device like everything else and is included in backups. The Projects & Goals, Habits & Fitness, Home, Travel and Money sections are placeholders in the menu, waiting to be built. Google Calendar and to-do app connections are planned for after the features are in place.

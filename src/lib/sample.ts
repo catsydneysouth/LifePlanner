@@ -1,4 +1,4 @@
-import type { AppState, Recipe, PantryItem, Plan } from '../types';
+import type { AppState, CalEvent, Recipe, PantryItem, Plan, Task } from '../types';
 import { addDays, startOfWeek, today } from './dates';
 import { parseIngredientBlock } from './units';
 
@@ -84,16 +84,36 @@ export function makeSampleState(): AppState {
   put(d(4), 'dinner', { kind: 'recipe', recipeId: byName('Chicken') });
   put(d(4), 'lunch', { kind: 'text', text: 'Cheese & pickle sandwich' });
 
+  const task = (title: string, due: string, project = '', priority = false): Task => ({ id: id('task'), title, done: false, due, project, priority, notes: '' });
+  const tasks: Task[] = [
+    task('Book dentist appointment', d(-2), 'Home', true),
+    task('Reply to venue about the Q1 offsite', d(0), 'Work', true),
+    task('Send expenses to finance', d(0), 'Work'),
+    task('Order a birthday present', d(2), 'Personal'),
+    task('Renew car insurance', d(9), 'Home'),
+    task('Plan next month’s volunteering rota', '', 'Volunteering'),
+  ];
+  const event = (title: string, date: string, start: string, end: string, notes = ''): CalEvent => ({ id: id('ev'), title, date, allDay: !start, start, end, notes });
+  const events: CalEvent[] = [
+    event('Team Stand-Up', d(0), '09:30', '10:00'),
+    event('Long Run', d(1), '07:30', '09:00'),
+    event('Volunteering', addDays(startOfWeek(now), 5), '10:00', '14:00'),
+    event('Dinner With Friends', d(3), '19:30', '22:00'),
+    event('Bank Holiday', d(12), '', ''),
+  ];
+
   return {
     version: 1,
     recipes,
     pantry,
     plan,
     manual: [{ id: id('man'), name: 'Dishwasher tablets', qty: null, unit: '' }],
+    tasks,
+    events,
     isSample: true,
   };
 }
 
 export function emptyState(): AppState {
-  return { version: 1, recipes: [], pantry: [], plan: {}, manual: [], isSample: false };
+  return { version: 1, recipes: [], pantry: [], plan: {}, manual: [], tasks: [], events: [], isSample: false };
 }

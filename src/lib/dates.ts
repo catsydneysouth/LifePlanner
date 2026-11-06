@@ -69,3 +69,39 @@ export function expiryInfo(expiry: string, now: string): { level: ExpiryLevel; l
   if (days <= 14) return { level: 'ok', label: `${days} days`, days };
   return { level: 'ok', label: fmtShort(expiry), days };
 }
+
+export function startOfMonth(iso: string): string {
+  const d = fromISO(iso);
+  return toISO(new Date(d.getFullYear(), d.getMonth(), 1));
+}
+
+export function addMonths(iso: string, n: number): string {
+  const d = fromISO(iso);
+  return toISO(new Date(d.getFullYear(), d.getMonth() + n, 1));
+}
+
+export function fmtMonth(iso: string): string {
+  return fromISO(iso).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+}
+
+export function fmtLong(iso: string): string {
+  return fromISO(iso).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+/** Friendly label + urgency for a to-do's due date. */
+export type DueLevel = 'none' | 'overdue' | 'today' | 'soon' | 'later';
+export function dueInfo(due: string, now: string): { level: DueLevel; label: string } {
+  if (!due) return { level: 'none', label: 'No date' };
+  const days = daysBetween(now, due);
+  if (days < 0) return { level: 'overdue', label: days === -1 ? 'Yesterday' : `${-days} days late` };
+  if (days === 0) return { level: 'today', label: 'Today' };
+  if (days === 1) return { level: 'soon', label: 'Tomorrow' };
+  if (days <= 6) return { level: 'soon', label: fromISO(due).toLocaleDateString('en-GB', { weekday: 'long' }) };
+  return { level: 'later', label: fmtShort(due) };
+}
+
+/** "09:30" -> "9:30am" style, kept simple and UK friendly (24-hour). */
+export function fmtTimeRange(start: string, end: string, allDay: boolean): string {
+  if (allDay || !start) return 'All day';
+  return end ? `${start}–${end}` : start;
+}
