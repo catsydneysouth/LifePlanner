@@ -1,15 +1,16 @@
 import { WeekPlanner } from './Week';
 import { RecipesPanel, RecipeModals } from './Recipes';
 
-/** Meal Plan page: the week on the left, your recipes on the right, so nothing is a page away. */
+/** Meal Plan page: the week on the left, a short recipes list on the right to drag from. */
 export function PlanPage({ arg }: { arg: string | null }) {
+  const rest = arg && arg.startsWith('recipe/') ? arg.slice('recipe/'.length) : null;
   return (
     <>
       <div className="plan-layout">
         <div className="plan-main"><WeekPlanner /></div>
         <aside className="plan-side"><RecipesPanel /></aside>
       </div>
-      <RecipeModals arg={arg} />
+      <RecipeModals rest={rest} basePath="#/plan/recipe" closePath="#/plan" />
     </>
   );
 }

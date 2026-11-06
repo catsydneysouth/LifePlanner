@@ -6,24 +6,20 @@ import { buildShopping, namesMatch } from '../lib/shopping';
 import { capitalise, formatQtyUnit, parseIngredientLine } from '../lib/units';
 import { EmptyState, Icon } from '../components/ui';
 
-const HORIZONS = [
-  { label: '3 Days', days: 3 },
-  { label: '7 Days', days: 7 },
-  { label: '14 Days', days: 14 },
-];
+/** The list covers the next 7 days of planned meals. (A range selector was tried and removed; see notes.) */
+const HORIZON_DAYS = 7;
 
 export function ShoppingPanel({ onBought }: { onBought: (ids: string[]) => void }) {
   const { state, actions } = useStore();
   const now = today();
-  const [horizon, setHorizon] = useState(7);
   const [draft, setDraft] = useState('');
   const [confirming, setConfirming] = useState<string | null>(null);
   const [location, setLocation] = useState<Location>('cupboard');
   const [expiry, setExpiry] = useState('');
 
   const result = useMemo(
-    () => buildShopping({ plan: state.plan, recipes: state.recipes, pantry: state.pantry, manual: state.manual, from: now, to: addDays(now, horizon - 1), now }),
-    [state.plan, state.recipes, state.pantry, state.manual, horizon, now],
+    () => buildShopping({ plan: state.plan, recipes: state.recipes, pantry: state.pantry, manual: state.manual, from: now, to: addDays(now, HORIZON_DAYS - 1), now }),
+    [state.plan, state.recipes, state.pantry, state.manual, now],
   );
 
   const addManual = () => {
@@ -56,7 +52,7 @@ export function ShoppingPanel({ onBought }: { onBought: (ids: string[]) => void 
         <div>
           <div>
             <span className="shop-name">{capitalise(i.name)}</span>
-            {i.qty !== null && <span className="shop-qty">{formatQtyUnit(i.qty, i.unit)}</span>}
+            {i.qty !== null && <span className="shop-qty">{i.detail && !i.manual ? 'buy ' : ''}{formatQtyUnit(i.qty, i.unit)}</span>}
           </div>
           <div className="for">
             {i.manual ? <span className="you">added by you</span> : (
@@ -66,7 +62,7 @@ export function ShoppingPanel({ onBought }: { onBought: (ids: string[]) => void 
               </>
             )}
           </div>
-          {i.note && <div className="note">{i.note}</div>}
+          {i.detail && <div className="note">{i.detail}</div>}
           {open && (
             <form className="bought-form" onSubmit={(e) => { e.preventDefault(); confirmBought(i); }}>
               <label className="field"><span>It Goes In</span>
@@ -97,16 +93,10 @@ export function ShoppingPanel({ onBought }: { onBought: (ids: string[]) => void 
         <div>
           <h2>Shopping List</h2>
           <div className="panel-sub">
-            {result.mealCount === 0 ? 'Plan some recipe meals and what you need appears here.' : `For ${result.mealCount} planned ${result.mealCount === 1 ? 'meal' : 'meals'}, minus what’s in your pantry.`}
+            {result.mealCount === 0 ? 'Plan some recipe meals and what you need appears here.' : `For your next 7 days of meals (${result.mealCount} planned), minus what’s in your pantry.`}
           </div>
         </div>
       </div>
-      <div className="pills" style={{ marginBottom: 12 }}>
-        {HORIZONS.map((h) => (
-          <button key={h.days} className={`pill ${horizon === h.days ? 'on' : ''}`} onClick={() => setHorizon(h.days)}>{h.label}</button>
-        ))}
-      </div>
-
       <form className="addbar" onSubmit={(e) => { e.preventDefault(); addManual(); }}>
         <input className="input" placeholder="Add anything else, e.g. 2 kitchen rolls" value={draft} onChange={(e) => setDraft(e.target.value)} />
         <button className="btn" type="submit" disabled={!draft.trim()}><Icon name="plus" size={16} /> Add</button>
@@ -119,7 +109,7 @@ export function ShoppingPanel({ onBought }: { onBought: (ids: string[]) => void 
           </EmptyState>
         </div>
       ) : (
-        <div className="card">{result.toBuy.map(row)}</div>
+        <div className="card scrolls">{result.toBuy.map(row)}</div>
       )}
 
       {result.covered.length > 0 && (

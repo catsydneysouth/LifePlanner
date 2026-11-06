@@ -64,6 +64,6 @@ export interface ShoppingItem {
   forRecipes: string[];
   manual: boolean;
   manualId?: string;
-  /** e.g. "You have 100 g, need 300 g" */
-  note?: string;
+  /** plain-English explanation, e.g. "You need 1kg in total and have 600g." */
+  detail?: string;
 }

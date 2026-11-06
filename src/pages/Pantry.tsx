@@ -8,19 +8,55 @@ import { COMMON_UNITS, EmptyState, ExpiryBadge, Icon, Modal } from '../component
 
 type Filter = 'all' | Location;
 
-export function PantryPanel({ flashIds }: { flashIds: string[] }) {
-  const { state, actions } = useStore();
+/** The "Use It Up" banner that sits full width above the shopping list and pantry. */
+export function UseItUpBanner({ onEdit }: { onEdit: (item: PantryItem) => void }) {
+  const { state } = useStore();
   const now = today();
-  const [filter, setFilter] = useState<Filter>('all');
-  const [q, setQ] = useState('');
-  const [editing, setEditing] = useState<PantryItem | 'new' | null>(null);
-  const [bulk, setBulk] = useState(false);
-
   const urgent = useMemo(
     () => state.pantry.filter((p) => p.expiry && daysBetween(now, p.expiry) <= 2).sort((a, b) => a.expiry.localeCompare(b.expiry)),
     [state.pantry, now],
   );
-  const suggestions = useMemo(() => suggestUseItUp(state.recipes, state.pantry, now).slice(0, 3), [state.recipes, state.pantry, now]);
+  const suggestions = useMemo(() => suggestUseItUp(state.recipes, state.pantry, now).slice(0, 4), [state.recipes, state.pantry, now]);
+  if (urgent.length === 0) return null;
+
+  return (
+    <section className="use-banner">
+      <h2><Icon name="clock" size={20} /> Use It Up</h2>
+      <div className="use-grid">
+        <div>
+          <h4>Going Off Soon</h4>
+          <div className="chips">
+            {urgent.map((p) => (
+              <button key={p.id} className="chip" onClick={() => onEdit(p)} style={{ cursor: 'pointer' }}>
+                {p.name} <small>{expiryInfo(p.expiry, now).label.toLowerCase()}</small>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <h4>Recipes That Would Use Some Of It</h4>
+          {suggestions.length === 0 ? (
+            <p className="use-none">Nothing in your recipes uses these yet.</p>
+          ) : (
+            <div className="chips">
+              {suggestions.map((s) => (
+                <a key={s.recipe.id} className="chip" href={`#/recipes/${s.recipe.id}`}>
+                  {s.recipe.name} <small>uses {s.uses.join(', ').toLowerCase()}</small>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function PantryPanel({ flashIds, onEdit, onBulk }: { flashIds: string[]; onEdit: (item: PantryItem | 'new') => void; onBulk: () => void }) {
+  const { state, actions } = useStore();
+  const now = today();
+  const [filter, setFilter] = useState<Filter>('all');
+  const [q, setQ] = useState('');
 
   const shown = state.pantry
     .filter((p) => (filter === 'all' || p.location === filter) && p.name.toLowerCase().includes(q.toLowerCase()))
@@ -39,60 +75,36 @@ export function PantryPanel({ flashIds }: { flashIds: string[] }) {
       <div className="panel-head">
         <div>
           <h2>Pantry</h2>
-          <div className="panel-sub">{state.pantry.length} {state.pantry.length === 1 ? 'item' : 'items'} · eat the earliest dates first</div>
+          <div className="panel-sub">{state.pantry.length} {state.pantry.length === 1 ? 'item' : 'items'} · earliest dates first</div>
         </div>
         <div className="row" style={{ gap: 8 }}>
-          <button className="btn btn-sm" onClick={() => setBulk(true)}><Icon name="upload" size={14} /> Add Many</button>
-          <button className="btn btn-primary btn-sm" onClick={() => setEditing('new')}><Icon name="plus" size={14} /> Add Item</button>
+          <button className="btn btn-sm" onClick={onBulk}><Icon name="upload" size={14} /> Add Many</button>
+          <button className="btn btn-primary btn-sm" onClick={() => onEdit('new')}><Icon name="plus" size={14} /> Add Item</button>
         </div>
       </div>
 
-      {urgent.length > 0 && (
-        <div className="callout">
-          <h3><Icon name="clock" size={18} /> Use It Up</h3>
-          <div className="chips">
-            {urgent.map((p) => (
-              <button key={p.id} className="chip" onClick={() => setEditing(p)} style={{ cursor: 'pointer' }}>
-                {p.name} <small>{expiryInfo(p.expiry, now).label.toLowerCase()}</small>
-              </button>
-            ))}
-          </div>
-          {suggestions.length > 0 && (
-            <div className="suggest">
-              <h4>Recipes That Would Use Some Of It</h4>
-              <div className="chips">
-                {suggestions.map((s) => (
-                  <a key={s.recipe.id} className="chip" href={`#/plan/recipe/${s.recipe.id}`}>
-                    {s.recipe.name} <small>uses {s.uses.join(', ').toLowerCase()}</small>
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
+      <div className="addbar addbar-3">
+        <div className="searchbox" style={{ maxWidth: 'none' }}>
+          <Icon name="search" size={16} />
+          <input className="input" placeholder="Search your pantry" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-      )}
-
-      <div className="searchbox" style={{ maxWidth: 'none', marginBottom: 10 }}>
-        <Icon name="search" size={16} />
-        <input className="input" placeholder="Search your pantry" value={q} onChange={(e) => setQ(e.target.value)} />
-      </div>
-      <div className="pills" style={{ marginBottom: 12 }}>
-        {(['all', ...LOCATIONS] as Filter[]).map((f) => (
-          <button key={f} className={`pill ${filter === f ? 'on' : ''}`} onClick={() => setFilter(f)}>{f[0].toUpperCase() + f.slice(1)}</button>
-        ))}
+        <select className="select" value={filter} onChange={(e) => setFilter(e.target.value as Filter)} aria-label="Where it is kept">
+          <option value="all">Everywhere</option>
+          {LOCATIONS.map((l) => <option key={l} value={l}>{l[0].toUpperCase() + l.slice(1)}</option>)}
+        </select>
       </div>
 
       {shown.length === 0 ? (
         <div className="card">
           <EmptyState
             title={state.pantry.length === 0 ? 'Nothing In The Pantry Yet' : 'Nothing Matches'}
-            action={state.pantry.length === 0 ? <button className="btn btn-primary" onClick={() => setBulk(true)}>Add A Bunch At Once</button> : undefined}
+            action={state.pantry.length === 0 ? <button className="btn btn-primary" onClick={onBulk}>Add A Bunch At Once</button> : undefined}
           >
             {state.pantry.length === 0 ? 'Paste a list, one item per line, and say where it lives and when it expires.' : 'Try a different search or location.'}
           </EmptyState>
         </div>
       ) : (
-        <div className="card list">
+        <div className="card list scrolls">
           {shown.map((p) => (
             <div className={`item ${flashIds.includes(p.id) ? 'flash' : ''}`} key={p.id}>
               <div>
@@ -105,21 +117,18 @@ export function PantryPanel({ flashIds }: { flashIds: string[] }) {
               </div>
               <div className="item-actions">
                 <ExpiryBadge expiry={p.expiry} now={now} />
-                <button className="icon-btn" aria-label={`Edit ${p.name}`} onClick={() => setEditing(p)}><Icon name="edit" size={16} /></button>
+                <button className="icon-btn" aria-label={`Edit ${p.name}`} onClick={() => onEdit(p)}><Icon name="edit" size={16} /></button>
                 <button className="icon-btn" aria-label={`Remove ${p.name}`} onClick={() => actions.deletePantryItem(p.id)}><Icon name="trash" size={16} /></button>
               </div>
             </div>
           ))}
         </div>
       )}
-
-      {editing && <ItemModal item={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
-      {bulk && <BulkModal onClose={() => setBulk(false)} />}
     </section>
   );
 }
 
-function ItemModal({ item, onClose }: { item: PantryItem | null; onClose: () => void }) {
+export function ItemModal({ item, onClose }: { item: PantryItem | null; onClose: () => void }) {
   const { actions } = useStore();
   const [name, setName] = useState(item?.name ?? '');
   const [qty, setQty] = useState(item?.qty === null || item?.qty === undefined ? '' : String(item.qty));
@@ -163,7 +172,7 @@ function ItemModal({ item, onClose }: { item: PantryItem | null; onClose: () => 
   );
 }
 
-function BulkModal({ onClose }: { onClose: () => void }) {
+export function BulkModal({ onClose }: { onClose: () => void }) {
   const { actions } = useStore();
   const [text, setText] = useState('');
   const [location, setLocation] = useState<Location>('fridge');

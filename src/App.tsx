@@ -3,21 +3,23 @@ import { useStore } from './store';
 import { Icon } from './components/ui';
 import { PlanPage } from './pages/Plan';
 import { KitchenPage } from './pages/Kitchen';
+import { RecipesPage } from './pages/Recipes';
 import { exportBackup, parseBackup } from './lib/storage';
 import { buildShopping } from './lib/shopping';
 import { addDays, today } from './lib/dates';
 
-type Route = { page: 'plan' | 'kitchen'; arg: string | null };
+type Route = { page: 'plan' | 'recipes' | 'kitchen'; arg: string | null };
 
 function parseHash(): Route {
   const parts = window.location.hash.replace(/^#\/?/, '').split('/');
-  const page = (['plan', 'kitchen'] as const).find((p) => p === parts[0]) ?? 'plan';
+  const page = (['plan', 'recipes', 'kitchen'] as const).find((p) => p === parts[0]) ?? 'plan';
   const arg = parts.length > 1 ? parts.slice(1).join('/') : null;
   return { page, arg: arg || null };
 }
 
 const NAV = [
   { page: 'plan', label: 'Meal Plan', icon: 'week' },
+  { page: 'recipes', label: 'Recipes', icon: 'recipes' },
   { page: 'kitchen', label: 'Kitchen', icon: 'pantry' },
 ] as const;
 
@@ -92,6 +94,7 @@ export function App() {
           </div>
         )}
         {route.page === 'plan' && <PlanPage arg={route.arg} />}
+        {route.page === 'recipes' && <RecipesPage arg={route.arg} />}
         {route.page === 'kitchen' && <KitchenPage />}
       </main>
 

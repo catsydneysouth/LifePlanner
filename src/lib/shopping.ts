@@ -1,6 +1,6 @@
 import type { Plan, Recipe, PantryItem, ManualItem, ShoppingItem, Slot } from '../types';
 import { SLOTS } from '../types';
-import { addDays, daysBetween } from './dates';
+import { addDays, daysBetween, fmtDay } from './dates';
 import { formatQtyUnit, fromBase, normName, toBase } from './units';
 
 /** Two food names refer to the same thing if equal, or one is a more specific form of the other
@@ -45,15 +45,6 @@ export function plannedRecipes(plan: Plan, recipes: Recipe[], fromIso: string, t
   return out;
 }
 
-interface Need {
-  norm: string;
-  name: string;
-  /** base-unit quantity; null = unspecified amount */
-  qty: number | null;
-  unit: string;
-  forRecipes: Set<string>;
-}
-
 export interface CoveredItem {
   name: string;
   have: string;
@@ -66,6 +57,38 @@ export interface ShoppingResult {
   mealCount: number;
 }
 
+interface StockEntry {
+  item: PantryItem;
+  /** base unit ('' = plain count) */
+  unit: string;
+  /** quantity still unspoken for, in base units */
+  left: number;
+  /** quantity when we started, in base units */
+  initial: number;
+  /** true when the pantry says "some" without an amount */
+  plenty: boolean;
+}
+
+interface Agg {
+  norm: string;
+  name: string;
+  unit: string;
+  needTotal: number;
+  buy: number;
+  buyUnspecified: boolean;
+  forAll: Set<string>;
+  forBuy: Set<string>;
+  /** first meal date that could not use stock because it would be out of date */
+  goesOffBefore: string;
+}
+
+const EPS = 0.0001;
+
+/**
+ * Works through the planned meals in date order and takes each ingredient from pantry stock that is
+ * still in date on that meal's day (earliest-expiring first). Whatever is left over is what you need to buy.
+ * So chicken that goes off tomorrow is not counted for a curry planned next Tuesday.
+ */
 export function buildShopping(args: {
   plan: Plan;
   recipes: Recipe[];
@@ -77,104 +100,132 @@ export function buildShopping(args: {
 }): ShoppingResult {
   const { plan, recipes, pantry, manual, from, to, now } = args;
   const meals = plannedRecipes(plan, recipes, from, to);
-  const needs = new Map<string, Need>();
 
-  for (const m of meals) {
-    for (const ing of m.recipe.ingredients) {
+  const stock: StockEntry[] = usablePantry(pantry, now).map((p) => {
+    if (p.qty === null) return { item: p, unit: '', left: 0, initial: 0, plenty: true };
+    const b = toBase(p.qty, p.unit);
+    return { item: p, unit: b.unit, left: b.qty, initial: b.qty, plenty: false };
+  });
+  const validOn = (e: StockEntry, date: string) => !e.item.expiry || e.item.expiry >= date;
+
+  const aggs = new Map<string, Agg>();
+  for (const meal of meals) {
+    for (const ing of meal.recipe.ingredients) {
       const norm = normName(ing.name);
       if (!norm) continue;
       const base = ing.qty === null ? null : toBase(ing.qty, ing.unit);
-      const unit = base ? base.unit : '?';
-      const key = `${norm}|${unit}`;
-      const cur = needs.get(key);
-      if (cur) {
-        if (base && cur.qty !== null) cur.qty += base.qty;
-        cur.forRecipes.add(m.recipe.name);
-      } else {
-        needs.set(key, {
-          norm,
-          name: ing.name.trim(),
-          qty: base ? base.qty : null,
-          unit: base ? base.unit : '',
-          forRecipes: new Set([m.recipe.name]),
-        });
+      const key = `${norm}|${base ? base.unit : '?'}`;
+      let agg = aggs.get(key);
+      if (!agg) {
+        agg = { norm, name: ing.name.trim(), unit: base ? base.unit : '?', needTotal: 0, buy: 0, buyUnspecified: false, forAll: new Set(), forBuy: new Set(), goesOffBefore: '' };
+        aggs.set(key, agg);
       }
-    }
-  }
+      agg.forAll.add(meal.recipe.name);
 
-  // Fold "some salt" (no amount) into a measured "salt" row if there is one
-  for (const [key, n] of [...needs]) {
-    if (n.qty !== null) continue;
-    const sibling = [...needs.values()].find((o) => o !== n && o.qty !== null && o.norm === n.norm);
-    if (sibling) {
-      n.forRecipes.forEach((r) => sibling.forRecipes.add(r));
-      needs.delete(key);
-    }
-  }
+      const matches = stock.filter((e) => namesMatch(e.item.name, ing.name));
+      const valid = matches.filter((e) => validOn(e, meal.date));
 
-  const stock = usablePantry(pantry, now);
-  const toBuy: ShoppingItem[] = [];
-  const covered: CoveredItem[] = [];
-
-  for (const n of needs.values()) {
-    const matches = stock.filter((p) => namesMatch(p.name, n.name));
-    const forRecipes = [...n.forRecipes];
-
-    if (n.qty === null) {
-      if (matches.length > 0) {
-        covered.push({ name: n.name, have: 'in your pantry', forRecipes });
-      } else {
-        toBuy.push({ key: `auto:${n.norm}|?`, name: n.name, qty: null, unit: '', forRecipes, manual: false });
-      }
-      continue;
-    }
-
-    // Sum same-unit stock (after base conversion); unspecified-amount stock counts as "plenty"
-    let have = 0;
-    let plenty = false;
-    const otherUnits: string[] = [];
-    for (const p of matches) {
-      if (p.qty === null) {
-        plenty = true;
+      if (!base) {
+        if (valid.length === 0) {
+          agg.buyUnspecified = true;
+          agg.forBuy.add(meal.recipe.name);
+          if (!agg.goesOffBefore && matches.length > 0) agg.goesOffBefore = meal.date;
+        }
         continue;
       }
-      const pb = toBase(p.qty, p.unit);
-      if (pb.unit === n.unit) have += pb.qty;
-      else otherUnits.push(formatQtyUnit(p.qty, p.unit));
-    }
 
-    if (plenty || have >= n.qty) {
-      const shown = fromBase(have, n.unit);
-      covered.push({ name: n.name, have: plenty && have === 0 ? 'in your pantry' : `${formatQtyUnit(shown.qty, shown.unit)} in stock`, forRecipes });
+      agg.needTotal += base.qty;
+      let remaining = base.qty;
+      if (valid.some((e) => e.plenty)) {
+        remaining = 0;
+      } else {
+        const usable = valid
+          .filter((e) => e.unit === base.unit)
+          .sort((x, y) => (x.item.expiry || '9999-99-99').localeCompare(y.item.expiry || '9999-99-99'));
+        for (const e of usable) {
+          const take = Math.min(e.left, remaining);
+          e.left -= take;
+          remaining -= take;
+          if (remaining <= EPS) break;
+        }
+      }
+      if (remaining > EPS) {
+        agg.buy += remaining;
+        agg.forBuy.add(meal.recipe.name);
+        const lost = matches.find((e) => e.unit === base.unit && !e.plenty && e.left > EPS && e.item.expiry && e.item.expiry < meal.date);
+        if (lost && !agg.goesOffBefore) agg.goesOffBefore = meal.date;
+      }
+    }
+  }
+
+  // "some salt" (no amount) folds into a measured "salt" row if there is one
+  for (const [key, a] of [...aggs]) {
+    if (a.unit !== '?') continue;
+    const sibling = [...aggs.values()].find((o) => o !== a && o.unit !== '?' && o.norm === a.norm);
+    if (sibling) {
+      a.forAll.forEach((r) => sibling.forAll.add(r));
+      if (a.buyUnspecified && sibling.buy > EPS) a.forBuy.forEach((r) => sibling.forBuy.add(r));
+      aggs.delete(key);
+    }
+  }
+
+  const toBuy: ShoppingItem[] = [];
+  const covered: CoveredItem[] = [];
+  const dayLabel = (iso: string) => {
+    const f = fmtDay(iso);
+    return `${f.dow} ${f.num} ${f.month}`;
+  };
+
+  for (const a of aggs.values()) {
+    const matches = stock.filter((e) => namesMatch(e.item.name, a.name));
+
+    if (a.unit === '?') {
+      if (a.buyUnspecified) {
+        toBuy.push({
+          key: `auto:${a.norm}|?`, name: a.name, qty: null, unit: '', forRecipes: [...a.forBuy], manual: false,
+          detail: a.goesOffBefore ? `What you have goes off before ${dayLabel(a.goesOffBefore)}.` : undefined,
+        });
+      } else {
+        covered.push({ name: a.name, have: 'in your pantry', forRecipes: [...a.forAll] });
+      }
       continue;
     }
 
-    const missing = n.qty - have;
-    const shownMissing = fromBase(missing, n.unit);
-    let note: string | undefined;
-    if (have > 0) {
-      const shownHave = fromBase(have, n.unit);
-      note = `You have ${formatQtyUnit(shownHave.qty, shownHave.unit)}`;
-    } else if (otherUnits.length > 0) {
-      note = `You have ${otherUnits.join(' + ')} (different units, so not counted)`;
+    const haveBase = matches.filter((e) => e.unit === a.unit && !e.plenty).reduce((n, e) => n + e.initial, 0);
+    const hasPlenty = matches.some((e) => e.plenty);
+
+    if (a.buy > EPS) {
+      const buy = fromBase(a.buy, a.unit);
+      const sentences: string[] = [];
+      if (haveBase > EPS) {
+        const need = fromBase(a.needTotal, a.unit);
+        const have = fromBase(haveBase, a.unit);
+        sentences.push(`You need ${formatQtyUnit(need.qty, need.unit)} in total and have ${formatQtyUnit(have.qty, have.unit)}.`);
+      } else {
+        const others = matches.filter((e) => e.unit !== a.unit && !e.plenty).map((e) => formatQtyUnit(e.item.qty, e.item.unit));
+        if (others.length > 0) sentences.push(`You have ${others.join(' + ')} (different units, so not counted).`);
+      }
+      if (a.goesOffBefore) sentences.push(`What you have goes off before ${dayLabel(a.goesOffBefore)}.`);
+      toBuy.push({
+        key: `auto:${a.norm}|${a.unit}`, name: a.name, qty: buy.qty, unit: buy.unit, forRecipes: [...a.forBuy], manual: false,
+        detail: sentences.length ? sentences.join(' ') : undefined,
+      });
+    } else {
+      const have = fromBase(haveBase, a.unit);
+      covered.push({
+        name: a.name,
+        have: hasPlenty && haveBase <= EPS ? 'in your pantry' : `${formatQtyUnit(have.qty, have.unit)} in stock`,
+        forRecipes: [...a.forAll],
+      });
     }
-    toBuy.push({
-      key: `auto:${n.norm}|${n.unit}`,
-      name: n.name,
-      qty: shownMissing.qty,
-      unit: shownMissing.unit,
-      forRecipes,
-      manual: false,
-      note,
-    });
   }
 
   for (const m of manual) {
     toBuy.push({ key: `manual:${m.id}`, name: m.name, qty: m.qty, unit: m.unit, forRecipes: [], manual: true, manualId: m.id });
   }
 
-  toBuy.sort((a, b) => a.name.localeCompare(b.name));
-  covered.sort((a, b) => a.name.localeCompare(b.name));
+  toBuy.sort((x, y) => x.name.localeCompare(y.name));
+  covered.sort((x, y) => x.name.localeCompare(y.name));
   return { toBuy, covered, mealCount: meals.length };
 }
 

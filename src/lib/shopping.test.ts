@@ -71,7 +71,7 @@ describe('buildShopping', () => {
     expect(names).not.toContain('olive oil');
     const tomatoes = res.toBuy.find((i) => i.name === 'chopped tomatoes')!;
     expect(tomatoes.qty).toBe(2);
-    expect(tomatoes.note).toBe('You have 1 tin');
+    expect(tomatoes.detail).toBe('You need 3 tins in total and have 1 tin.');
     const chicken = res.toBuy.find((i) => i.name === 'chicken thighs')!;
     expect(chicken.qty).toBe(500);
     expect(chicken.unit).toBe('g');
@@ -81,13 +81,40 @@ describe('buildShopping', () => {
   it('flags stock in a different unit instead of silently counting it', () => {
     const res = buildShopping({ plan, recipes: [pasta, curry], pantry: [pantryItem('Onion', 400, 'g')], manual: [], from: NOW, to: '2026-11-12', now: NOW });
     const onion = res.toBuy.find((i) => i.name === 'onion')!;
-    expect(onion.note).toContain('different units');
+    expect(onion.detail).toContain('different units');
   });
 
   it('keeps manual items', () => {
     const res = buildShopping({ plan: {}, recipes: [], pantry: [], manual: [{ id: 'm1', name: 'Washing-up liquid', qty: null, unit: '' }], from: NOW, to: NOW, now: NOW });
     expect(res.toBuy).toHaveLength(1);
     expect(res.toBuy[0].manual).toBe(true);
+  });
+});
+
+describe('stock that goes off before a meal does not count for that meal', () => {
+  const curry = recipe('r2', 'Curry', ['500g chicken thighs', '1 onion']);
+  const plan: Plan = {
+    '2026-11-06': { dinner: [{ id: 'a', kind: 'recipe', recipeId: 'r2' }] },
+    '2026-11-10': { dinner: [{ id: 'b', kind: 'recipe', recipeId: 'r2' }] },
+  };
+  it('uses the chicken for the first curry and buys fresh for the second', () => {
+    const pantry = [pantryItem('Chicken thighs', 600, 'g', '2026-11-07')];
+    const res = buildShopping({ plan, recipes: [curry], pantry, manual: [], from: NOW, to: '2026-11-12', now: NOW });
+    const chicken = res.toBuy.find((i) => i.name === 'chicken thighs')!;
+    expect(chicken.qty).toBe(500);
+    expect(chicken.unit).toBe('g');
+    expect(chicken.detail).toBe('You need 1kg in total and have 600g. What you have goes off before Tue 10 Nov.');
+  });
+  it('buys nothing when the stock is in date for both meals', () => {
+    const pantry = [pantryItem('Chicken thighs', 1.2, 'kg', '2026-11-20'), pantryItem('Onions', 4, '')];
+    const res = buildShopping({ plan, recipes: [curry], pantry, manual: [], from: NOW, to: '2026-11-12', now: NOW });
+    expect(res.toBuy).toHaveLength(0);
+    expect(res.covered.map((c) => c.name)).toEqual(expect.arrayContaining(['chicken thighs', 'onion']));
+  });
+  it('lets the earliest-expiring tub be used first', () => {
+    const pantry = [pantryItem('Chicken thighs', 500, 'g', '2026-11-25'), { ...pantryItem('Chicken thighs', 500, 'g', '2026-11-07'), id: 'early' }];
+    const res = buildShopping({ plan, recipes: [curry], pantry: [...pantry, pantryItem('Onions', 4, '')], manual: [], from: NOW, to: '2026-11-12', now: NOW });
+    expect(res.toBuy).toHaveLength(0); // early one used on the 6th, later one on the 10th
   });
 });
 
