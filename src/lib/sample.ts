@@ -1,6 +1,7 @@
-import type { AppState, CalEvent, Recipe, PantryItem, Plan, Task } from '../types';
+import type { AppState, CalEvent, Chore, Habit, Project, Recipe, PantryItem, Plan, Task, Trip, Workout, Expense, Bill, SavingsGoal } from '../types';
 import { addDays, startOfWeek, today } from './dates';
 import { parseIngredientBlock } from './units';
+import { normalise } from './storage';
 
 let n = 0;
 const id = (p: string) => `${p}${++n}`;
@@ -110,10 +111,48 @@ export function makeSampleState(): AppState {
     manual: [{ id: id('man'), name: 'Dishwasher tablets', qty: null, unit: '' }],
     tasks,
     events,
+    ...lifeSample(now),
     isSample: true,
   };
 }
 
 export function emptyState(): AppState {
-  return { version: 1, recipes: [], pantry: [], plan: {}, manual: [], tasks: [], events: [], isSample: false };
+  return normalise({});
+}
+
+function lifeSample(now: string) {
+  const d = (n: number) => addDays(now, n);
+  const step = (text: string, done = false) => ({ id: id('st'), text, done });
+  const projects: Project[] = [
+    { id: id('pr'), kind: 'project', title: 'Settle Into The New Job', area: 'Work', status: 'active', due: d(40), notes: '', target: null, current: 0, unit: '',
+      steps: [step('Meet everyone on the team', true), step('Map out how the department currently works', true), step('Write the first 90-day plan'), step('Agree priorities with my manager')] },
+    { id: id('pr'), kind: 'goal', title: 'Run 500 km This Year', area: 'Fitness', status: 'active', due: '', notes: '', target: 500, current: 312, unit: 'km', steps: [] },
+    { id: id('pr'), kind: 'project', title: 'Sort The Spare Room', area: 'Home', status: 'paused', due: '', notes: '', target: null, current: 0, unit: '', steps: [step('Clear the shelves', true), step('Donate the old books'), step('Build the new desk')] },
+  ];
+  const week = Array.from({ length: 7 }, (_, i) => d(-i));
+  const habits: Habit[] = [
+    { id: id('hb'), name: 'Take A Walk', days: [0, 1, 2, 3, 4, 5, 6], log: [week[1], week[2], week[3], week[5]] },
+    { id: id('hb'), name: 'Strength Session', days: [0, 2, 4], log: [week[2], week[4]] },
+    { id: id('hb'), name: 'Read Before Bed', days: [0, 1, 2, 3, 4, 5, 6], log: [week[0], week[1], week[2], week[3], week[4], week[5], week[6]] },
+  ];
+  const wk = (n: number, type: string, minutes: number | null, km: number | null, notes = ''): Workout => ({ id: id('wo'), date: d(n), type, minutes, km, notes });
+  const workouts: Workout[] = [wk(-1, 'Run', 52, 8.4, 'Easy pace'), wk(-3, 'Strength', 45, null), wk(-4, 'Run', 35, 5.2), wk(-8, 'Run', 95, 15.1, 'Long run')];
+  const chore = (title: string, area: string, everyDays: number, ago: number | null): Chore => ({ id: id('ch'), title, area, everyDays, last: ago === null ? '' : d(-ago) });
+  const chores: Chore[] = [
+    chore('Change The Bedding', 'Bedroom', 14, 16), chore('Clean The Bathroom', 'Bathroom', 7, 5), chore('Hoover Downstairs', 'Living Room', 7, 8),
+    chore('Take Out The Recycling', 'Kitchen', 7, 2), chore('Descale The Kettle', 'Kitchen', 90, 40), chore('Test The Smoke Alarms', 'General', 180, null),
+  ];
+  const trips: Trip[] = [
+    { id: id('tr'), name: 'Lisbon Long Weekend', destination: 'Lisbon, Portugal', start: d(34), end: d(37), status: 'booked', notes: '',
+      itinerary: [{ id: id('it'), date: d(34), text: 'Land, check in, wander Alfama' }, { id: id('it'), date: d(35), text: 'Belém and pastéis de nata' }],
+      bookings: [{ id: id('bk'), what: 'Flights', ref: 'ABC123', date: d(34) }, { id: id('bk'), what: 'Hotel', ref: 'HTL-884', date: d(34) }],
+      packing: [{ id: id('pk'), text: 'Passport', packed: false }, { id: id('pk'), text: 'Charger', packed: true }, { id: id('pk'), text: 'Comfortable shoes', packed: false }] },
+    { id: id('tr'), name: 'Scottish Highlands', destination: 'Scotland', start: '', end: '', status: 'idea', notes: 'Maybe in the spring.', itinerary: [], bookings: [], packing: [] },
+  ];
+  const ex = (n: number, amount: number, category: string, note: string): Expense => ({ id: id('ex'), date: d(n), amount, category, note });
+  const expenses: Expense[] = [ex(0, 4.5, 'Eating Out', 'Coffee'), ex(-1, 62.3, 'Groceries', 'Weekly shop'), ex(-2, 18, 'Transport', 'Oyster top-up'), ex(-3, 35, 'Fun', 'Cinema and dinner'), ex(-4, 9.99, 'Home', 'Cleaning supplies')];
+  const bills: Bill[] = [{ id: id('bl'), name: 'Rent', amount: 1100, day: 1 }, { id: id('bl'), name: 'Phone', amount: 24, day: 12 }, { id: id('bl'), name: 'Gym', amount: 38, day: 20 }, { id: id('bl'), name: 'Broadband', amount: 29, day: 25 }];
+  const savings: SavingsGoal[] = [{ id: id('sv'), name: 'Emergency Fund', target: 6000, saved: 3800, due: '' }, { id: id('sv'), name: 'Lisbon Spending Money', target: 500, saved: 220, due: d(30) }];
+  const budgets: Record<string, number> = { Groceries: 300, 'Eating Out': 120, Transport: 90, Home: 60, Fun: 100, Health: 50, Other: 50 };
+  return { projects, habits, workouts, chores, trips, expenses, bills, savings, budgets };
 }

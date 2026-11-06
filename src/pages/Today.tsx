@@ -3,6 +3,9 @@ import type { CalEvent, Task } from '../types';
 import { SLOTS } from '../types';
 import { useStore } from '../store';
 import { Icon } from '../components/ui';
+import { choreStatus } from '../lib/life';
+import { ChoreRow } from './Home';
+import { HabitTicks } from './Habits';
 import { addDays, daysBetween, fmtLong, fmtShort, today } from '../lib/dates';
 import { TaskModal, TaskRow } from './Todos';
 import { EventModal, EventRow, sortEvents } from './Calendar';
@@ -25,6 +28,9 @@ export function TodayPage() {
   const doneToday = state.tasks.filter((t) => t.done && t.due && t.due <= now).length;
   const meals = SLOTS.map((slot) => ({ slot, entries: state.plan[now]?.[slot] ?? [] }));
   const mealCount = meals.reduce((n, m) => n + m.entries.length, 0);
+  const habitsToday = state.habits.filter((h) => h.days.includes((new Date().getDay() + 6) % 7));
+  const habitsDone = habitsToday.filter((h) => h.log.includes(now)).length;
+  const choresDue = state.chores.filter((c) => choreStatus(c, now).days <= 0).sort((a, b) => choreStatus(a, now).days - choreStatus(b, now).days);
   const goingOff = state.pantry.filter((p) => p.expiry && daysBetween(now, p.expiry) <= 2).sort((a, b) => a.expiry.localeCompare(b.expiry));
   const recipeName = (id: string) => state.recipes.find((r) => r.id === id)?.name ?? 'Deleted recipe';
 
@@ -69,6 +75,22 @@ export function TodayPage() {
             </div>
           ))}
         </section>
+
+        {habitsToday.length > 0 && (
+          <section className="panel">
+            <div className="panel-head"><div><h2>Habits</h2><div className="panel-sub">{habitsDone} of {habitsToday.length} done today</div></div><a className="muted-link" href="#/habits">Habits & Fitness</a></div>
+            <div className="card hb-wrap"><table className="hb-table"><tbody>
+              {habitsToday.map((h) => <tr key={h.id}><td className="hb-name">{h.name}</td><HabitTicks habit={h} days={[now]} /></tr>)}
+            </tbody></table></div>
+          </section>
+        )}
+
+        {choresDue.length > 0 && (
+          <section className="panel">
+            <div className="panel-head"><div><h2>Home</h2><div className="panel-sub">{choresDue.length} to do now</div></div><a className="muted-link" href="#/home">Home</a></div>
+            <div className="card list">{choresDue.slice(0, 4).map((c) => <ChoreRow key={c.id} chore={c} onEdit={() => { window.location.hash = '#/home'; }} />)}</div>
+          </section>
+        )}
 
         <section className="panel">
           <div className="panel-head"><div><h2>Use It Up</h2><div className="panel-sub">{goingOff.length === 0 ? 'Nothing going off soon' : 'Going off in the next 2 days'}</div></div><a className="muted-link" href="#/kitchen">Kitchen</a></div>

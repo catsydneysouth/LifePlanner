@@ -7,6 +7,8 @@ import { addDays } from './lib/dates';
 export const uid = (): string =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
+export type ListKey = 'projects' | 'habits' | 'workouts' | 'chores' | 'trips' | 'expenses' | 'bills' | 'savings';
+
 export interface Actions {
   addMeal(date: string, slot: Slot, entry: { kind: 'text'; text: string } | { kind: 'recipe'; recipeId: string }): void;
   removeMeal(date: string, slot: Slot, entryId: string): void;
@@ -24,6 +26,10 @@ export interface Actions {
   clearDoneTasks(): void;
   saveEvent(e: Omit<CalEvent, 'id'> & { id?: string }): string;
   deleteEvent(id: string): void;
+  /** Save (add or update) one item in any list: projects, habits, workouts, chores, trips, expenses, bills, savings. */
+  save<K extends ListKey>(key: K, item: Omit<AppState[K][number], 'id'> & { id?: string }): string;
+  remove(key: ListKey, id: string): void;
+  setBudgets(budgets: Record<string, number>): void;
   replaceAll(state: AppState): void;
   clearSample(): void;
 }
@@ -153,6 +159,22 @@ export function StoreProvider({ children, storage = localStorageAdapter }: { chi
       },
       deleteEvent(id) {
         update((s) => ({ ...s, events: s.events.filter((e) => e.id !== id) }));
+      },
+      save(key, item) {
+        const iid = item.id ?? uid();
+        update((s) => {
+          const list = s[key] as { id: string }[];
+          const full = { ...item, id: iid };
+          const next = list.some((x) => x.id === iid) ? list.map((x) => (x.id === iid ? full : x)) : [...list, full];
+          return { ...s, [key]: next };
+        });
+        return iid;
+      },
+      remove(key, id) {
+        update((s) => ({ ...s, [key]: (s[key] as { id: string }[]).filter((x) => x.id !== id) }));
+      },
+      setBudgets(budgets) {
+        update((s) => ({ ...s, budgets }));
       },
       replaceAll(next) {
         setState(next);

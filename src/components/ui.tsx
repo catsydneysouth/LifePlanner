@@ -1,7 +1,7 @@
 import { useEffect, useId, type ReactNode } from 'react';
 import { expiryInfo } from '../lib/dates';
 
-type IconName = 'week' | 'pantry' | 'recipes' | 'cart' | 'plus' | 'x' | 'check' | 'search' | 'trash' | 'edit' | 'download' | 'upload' | 'leaf' | 'chevL' | 'chevR' | 'clock' | 'users' | 'sun' | 'list' | 'calendar' | 'spark';
+type IconName = 'week' | 'pantry' | 'recipes' | 'cart' | 'plus' | 'x' | 'check' | 'search' | 'trash' | 'edit' | 'download' | 'upload' | 'leaf' | 'chevL' | 'chevR' | 'clock' | 'users' | 'sun' | 'list' | 'calendar' | 'spark' | 'flag' | 'pulse' | 'home' | 'plane' | 'coin' | 'more';
 
 const PATHS: Record<IconName, ReactNode> = {
   week: (<><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>),
@@ -25,6 +25,12 @@ const PATHS: Record<IconName, ReactNode> = {
   list: (<><path d="m4.5 6.5 1.5 1.5 2.5-3M4.5 12.5 6 14l2.5-3M4.5 18.5 6 20l2.5-3M12 7h8M12 13h8M12 19h8" /></>),
   calendar: (<><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /><circle cx="12" cy="15" r="1.4" /></>),
   spark: (<path d="M12 4v4M12 16v4M4 12h4M16 12h4M7 7l2 2M15 15l2 2M17 7l-2 2M9 15l-2 2" />),
+  flag: (<path d="M6 21V4M6 5h11l-2 4 2 4H6" />),
+  pulse: (<path d="M3 12h4l2.5-6 4 12 2.5-6H21" />),
+  home: (<path d="m4 11 8-7 8 7M6 10v10h12V10M10 20v-5h4v5" />),
+  plane: (<path d="m21 4-9.5 9.5M21 4l-6.5 16-3-6.5L5 10.5z" />),
+  coin: (<><circle cx="12" cy="12" r="8" /><path d="M14.5 9.2c-.5-.7-1.5-1-2.5-1-1.5 0-2.5.8-2.5 1.8 0 2.6 5.2 1.2 5.2 3.8 0 1-1 1.8-2.7 1.8-1.1 0-2.2-.4-2.7-1.2M12 6.5v1.6M12 15.9v1.6" /></>),
+  more: (<><circle cx="5.5" cy="12" r="1.3" /><circle cx="12" cy="12" r="1.3" /><circle cx="18.5" cy="12" r="1.3" /></>),
 };
 
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
@@ -77,3 +83,7 @@ export function EmptyState({ title, children, action }: { title: string; childre
 }
 
 export const COMMON_UNITS = ['g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'tin', 'pack', 'pot', 'jar', 'bag', 'bottle', 'bunch', 'clove', 'slice'];
+
+export function ProgressBar({ pct, tone = 'accent' }: { pct: number; tone?: 'accent' | 'terra' | 'red' }) {
+  return <div className={`bar bar-${tone}`} role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} /></div>;
+}

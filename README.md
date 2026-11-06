@@ -59,3 +59,5 @@ src/pages/            Plan (Week + short recipes list), Recipes (full page), Kit
 ## More Sections
 
 The planner now also has **Today**, **To-Dos** and **Calendar** pages. Their data is saved on the device like everything else and is included in backups. The Projects & Goals, Habits & Fitness, Home, Travel and Money sections are placeholders in the menu, waiting to be built. Google Calendar and to-do app connections are planned for after the features are in place.
+
+The other sections are now built too: **Projects & Goals** (steps and number targets), **Habits & Fitness** (a 7-day tick grid, streaks and a workout log), **Home** (repeating jobs that come back when next due), **Travel** (trips with itinerary, bookings and packing) and **Money** (budgets, spending, monthly bills and savings goals; figures are typed in, nothing connects to a bank). Everything is still stored on the device and included in backups.

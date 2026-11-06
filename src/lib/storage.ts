@@ -18,8 +18,7 @@ export const localStorageAdapter: Storage = {
       const raw = window.localStorage.getItem(KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw) as AppState;
-      // older saves (food only) have no to-dos or events yet – fill them in as empty
-      return parsed && parsed.version === 1 ? { ...parsed, tasks: parsed.tasks ?? [], events: parsed.events ?? [] } : null;
+      return parsed && parsed.version === 1 ? normalise(parsed) : null;
     } catch {
       return null;
     }
@@ -32,6 +31,29 @@ export const localStorageAdapter: Storage = {
     }
   },
 };
+
+/** Fill in anything an older save is missing, so new sections never break old data. */
+export function normalise(data: Partial<AppState>): AppState {
+  return {
+    version: 1,
+    recipes: data.recipes ?? [],
+    pantry: data.pantry ?? [],
+    plan: data.plan ?? {},
+    manual: data.manual ?? [],
+    tasks: data.tasks ?? [],
+    events: data.events ?? [],
+    projects: data.projects ?? [],
+    habits: data.habits ?? [],
+    workouts: data.workouts ?? [],
+    chores: data.chores ?? [],
+    trips: data.trips ?? [],
+    expenses: data.expenses ?? [],
+    bills: data.bills ?? [],
+    savings: data.savings ?? [],
+    budgets: data.budgets ?? {},
+    isSample: data.isSample ?? false,
+  };
+}
 
 export function exportBackup(state: AppState): void {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
@@ -48,14 +70,5 @@ export function parseBackup(text: string): AppState {
   if (!data || data.version !== 1 || !Array.isArray(data.recipes) || !Array.isArray(data.pantry) || typeof data.plan !== 'object') {
     throw new Error('That file does not look like a Life Planner backup.');
   }
-  return {
-    version: 1,
-    recipes: data.recipes,
-    pantry: data.pantry,
-    plan: data.plan ?? {},
-    manual: data.manual ?? [],
-    tasks: data.tasks ?? [],
-    events: data.events ?? [],
-    isSample: false,
-  };
+  return { ...normalise(data), isSample: false };
 }
