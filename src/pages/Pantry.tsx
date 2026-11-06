@@ -83,15 +83,19 @@ export function PantryPanel({ flashIds, onEdit, onBulk }: { flashIds: string[]; 
         </div>
       </div>
 
-      <div className="addbar addbar-3">
-        <div className="searchbox" style={{ maxWidth: 'none' }}>
-          <Icon name="search" size={16} />
-          <input className="input" placeholder="Search your pantry" value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
-        <select className="select" value={filter} onChange={(e) => setFilter(e.target.value as Filter)} aria-label="Where it is kept">
-          <option value="all">Everywhere</option>
-          {LOCATIONS.map((l) => <option key={l} value={l}>{l[0].toUpperCase() + l.slice(1)}</option>)}
-        </select>
+      <div className="searchbox" style={{ maxWidth: 'none', marginBottom: 10 }}>
+        <Icon name="search" size={16} />
+        <input className="input" placeholder="Search your pantry" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
+      <div className="pills" style={{ marginBottom: 14 }}>
+        {(['all', ...LOCATIONS] as Filter[]).map((l) => {
+          const n = l === 'all' ? state.pantry.length : state.pantry.filter((p) => p.location === l).length;
+          return (
+            <button key={l} className={'pill' + (filter === l ? ' on' : '')} onClick={() => setFilter(l)}>
+              {l === 'all' ? 'All' : l[0].toUpperCase() + l.slice(1)}<span className="pill-n">{n}</span>
+            </button>
+          );
+        })}
       </div>
 
       {shown.length === 0 ? (
